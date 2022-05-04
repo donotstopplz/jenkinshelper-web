@@ -217,17 +217,8 @@ class JenkinsHelper(App):
         self.bt_logout.onclick.do(self.on_logout)
         self.logged_info = gui.HBox(children=[self.logined_api, self.logined_user, self.bt_logout],
                                     style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        # Drop Down
-        self.dd = gui.DropDown(width='200px')
-        self.dd.style.update({'font-size': 'large'})
-        self.dd.add_class("form-control dropdown")
-        self.dd.onchange.do(self.list_view_on_selected)
-        # self.item1 = gui.DropDownItem("First Choice")
-        # self.item2 = gui.DropDownItem("Second Item")
-        # self.dd.append(self.item1, 'item1')
-        # self.dd.append(self.item2, 'item2')
 
-        self.datainfo = gui.VBox(children=[self.logged_info, self.dd],
+        self.datainfo = gui.VBox(children=[self.logged_info],
                                  style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
         return self.wid
 
@@ -247,10 +238,16 @@ class JenkinsHelper(App):
         self.logined_api.set_text(self.api_url_value.get_text())
         self.logined_user.set_text(jenkins_server.get_whoami()['fullName'])
 
+        # Drop Down
+        dd = gui.DropDown(width='200px')
+        dd.style.update({'font-size': 'large'})
+        dd.add_class("form-control dropdown")
+        dd.onchange.do(self.list_view_on_selected)
         views = jenkins_server.get_views()
         for i in range(len(views)):
-            self.dd.append(gui.DropDownItem(views[i]['name']))
-        jobs = jenkins_server.get_jobs(view_name=self.dd.get_value())
+            dd.append(gui.DropDownItem(views[i]['name']))
+        self.datainfo.append(dd, 'dd')
+        jobs = jenkins_server.get_jobs(view_name=dd.get_value())
         liststr = []
         for job in jobs:
             liststr.append(job['name'])
@@ -282,9 +279,8 @@ class JenkinsHelper(App):
 
 
 def login_jenknis(url, username, password):
-    global jenkins_server
-    jenkins_server = jenkins.Jenkins(url, username, password)
-    return jenkins_server
+    server = jenkins.Jenkins(url, username, password)
+    return server
 
 
 if __name__ == "__main__":
