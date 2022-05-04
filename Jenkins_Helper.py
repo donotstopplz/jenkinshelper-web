@@ -11,12 +11,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-
+import jenkins
 import remi.gui as gui
 from remi import start, App
 import random
 import threading
-import jekins_server
+
+jenkins_server = None
 
 
 class CookieInterface(gui.Tag, gui.EventSource):
@@ -170,15 +171,15 @@ class LoginManager(gui.Tag, gui.EventSource):
         self.timeout_timer.start()
 
 
-class MyApp(App):
+class JenkinsHelper(App):
     def __init__(self, *args):
-        super(MyApp, self).__init__(*args)
+        super(JenkinsHelper, self).__init__(*args)
 
-    def main(self, name='world'):
+    def main(self, name='hello world'):
         self.login_manager = LoginManager(CookieInterface(self), 5)
         self.login_manager.on_session_expired.do(self.on_logout)
 
-        wid = gui.VBox(width=600, margin='100px auto')
+        self.wid = gui.VBox(width=600, margin='100px auto')
         # Text Input
         api_url = gui.Label('Jenkins API URL')
         self.api_url_value = gui.TextInput()
@@ -198,51 +199,64 @@ class MyApp(App):
 
         bt_login = gui.Button('LOGIN')
         bt_login.onclick.do(self.on_login)
-        bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
-        bt_renew.onclick.do(self.on_renew)
+        # bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
+        # bt_renew.onclick.do(self.on_renew)
 
         self.lblsession_status = gui.Label('NOT LOGGED IN')
 
-        wid.append(api_url_box)
-        wid.append(username_box)
-        wid.append(password_box)
-        wid.append(bt_login)
-        wid.append(bt_renew)
-        wid.append(self.lblsession_status)
+        self.wid.append(api_url_box)
+        self.wid.append(username_box)
+        self.wid.append(password_box)
+        self.wid.append(bt_login)
+        # wid.append(bt_renew)
+        self.wid.append(self.lblsession_status)
 
         self.logined_api = gui.Label()
         self.logined_user = gui.Label()
-        self.logined_info = gui.HBox(children=[self.logined_api, self.logined_user],
-                                     style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+        self.bt_logout = gui.Button('退出')
+        self.bt_logout.onclick.do(self.on_logout)
+        self.logged_info = gui.HBox(children=[self.logined_api, self.logined_user, self.bt_logout],
+                                    style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
         # Drop Down
         self.dd = gui.DropDown(width='200px')
         self.dd.style.update({'font-size': 'large'})
         self.dd.add_class("form-control dropdown")
+        self.dd.onchange.do(self.list_view_on_selected)
         # self.item1 = gui.DropDownItem("First Choice")
         # self.item2 = gui.DropDownItem("Second Item")
         # self.dd.append(self.item1, 'item1')
         # self.dd.append(self.item2, 'item2')
-        self.datainfo = gui.VBox(children=[self.logined_info, self.dd],
+
+        self.datainfo = gui.VBox(children=[self.logged_info, self.dd],
                                  style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        return wid
+        return self.wid
 
     def on_login(self, emitter):
-        server = jekins_server.login_jeknis(self.api_url_value.get_text(), self.username_value.get_text(),
-                                            self.password_value.get_text())
+        global jenkins_server
+        jenkins_server = login_jenknis(self.api_url_value.get_text(), self.username_value.get_text(),
+                                       self.password_value.get_text())
         try:
-            server.get_whoami()
+            jenkins_server.get_whoami()
         except Exception as result:
-            if '401' in str(result):
+            if len(str(result)) != 0:
+                self.lblsession_status.set_text('login failed!')
                 print("login failed!")
                 return
-        print('Hello %s from Jenkins %s' % (server.get_whoami()['fullName'], server.get_version()))
+        print('Hello %s from Jenkins %s' % (jenkins_server.get_whoami()['fullName'], jenkins_server.get_version()))
         self.login_manager.renew_session()
         self.logined_api.set_text(self.api_url_value.get_text())
-        self.logined_user.set_text(server.get_whoami()['fullName'])
+        self.logined_user.set_text(jenkins_server.get_whoami()['fullName'])
 
-        views = server.get_views()
+        views = jenkins_server.get_views()
         for i in range(len(views)):
-            self.dd.append(gui.DropDownItem(views[i]))
+            self.dd.append(gui.DropDownItem(views[i]['name']))
+        jobs = jenkins_server.get_jobs(view_name=self.dd.get_value())
+        liststr = []
+        for job in jobs:
+            liststr.append(job['name'])
+        self.init_list_job = gui.ListView.new_from_list(liststr, width=300, height=120, margin='10px')
+        # self.listJob.onselection.do(self.list_job_on_selected)
+        self.datainfo.append(self.init_list_job, 'jobList')
         self.set_root_widget(self.datainfo)
 
     def on_renew(self, emitter):
@@ -253,9 +267,26 @@ class MyApp(App):
             self.lblsession_status.set_text('UNABLE TO RENEW')
 
     def on_logout(self, emitter):
+        global jenkins_server
+        jenkins_server = None
+        self.set_root_widget(self.wid)
         self.lblsession_status.set_text('LOGOUT')
+
+    def list_view_on_selected(self, widget, selected_item_key):
+        jobs = jenkins_server.get_jobs(view_name=selected_item_key)
+        liststr = []
+        for job in jobs:
+            liststr.append(job['name'])
+        self.list_job = gui.ListView.new_from_list(liststr, width=300, height=120, margin='10px')
+        self.datainfo.append(self.list_job, 'jobList')
+
+
+def login_jenknis(url, username, password):
+    global jenkins_server
+    jenkins_server = jenkins.Jenkins(url, username, password)
+    return jenkins_server
 
 
 if __name__ == "__main__":
     # starts the webserver
-    start(MyApp, address='0.0.0.0', port=0, multiple_instance=False, debug=False)
+    start(JenkinsHelper, address='0.0.0.0', port=0, multiple_instance=False, debug=False)
