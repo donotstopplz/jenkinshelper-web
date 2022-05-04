@@ -176,7 +176,7 @@ class JenkinsHelper(App):
         super(JenkinsHelper, self).__init__(*args)
 
     def main(self, name='hello world'):
-        self.login_manager = LoginManager(CookieInterface(self), 5)
+        self.login_manager = LoginManager(CookieInterface(self), 60*20)
         self.login_manager.on_session_expired.do(self.on_logout)
 
         self.wid = gui.VBox(width=600, margin='100px auto')
@@ -251,7 +251,7 @@ class JenkinsHelper(App):
         liststr = []
         for job in jobs:
             liststr.append(job['name'])
-        self.init_list_job = gui.ListView.new_from_list(liststr, width=300, height=120, margin='10px')
+        self.init_list_job = gui.ListView.new_from_list(liststr, width=300, height=420, margin='10px')
         # self.listJob.onselection.do(self.list_job_on_selected)
         self.datainfo.append(self.init_list_job, 'jobList')
         self.set_root_widget(self.datainfo)
