@@ -16,6 +16,7 @@ import remi.gui as gui
 from remi import start, App
 import random
 import threading
+import jekins_server
 
 
 class CookieInterface(gui.Tag, gui.EventSource):
@@ -177,33 +178,72 @@ class MyApp(App):
         self.login_manager = LoginManager(CookieInterface(self), 5)
         self.login_manager.on_session_expired.do(self.on_logout)
 
-        wid = gui.VBox(width=400, height=800, margin='0px auto')
+        wid = gui.VBox(width=600, margin='100px auto')
         # Text Input
-        self.api_url = gui.TextInput(hint='Jenkins API URL')
-        self.api_url.add_class("form-control input-lg")
-        self.username = gui.TextInput(hint='Jenkins用户名')
-        self.username.add_class("form-control input-lg")
-        self.passwrod = gui.TextInput(hint='Jenkins密码')
-        self.passwrod.add_class("form-control input-lg")
-        btlogin = gui.Button('LOGIN')
-        btlogin.onclick.do(self.on_login)
-        btrenew = gui.Button('RENEW BEFORE EXPIRATION')
-        btrenew.onclick.do(self.on_renew)
+        api_url = gui.Label('Jenkins API URL')
+        self.api_url_value = gui.TextInput()
+        self.api_url_value.add_class("form-control input-lg")
+        api_url_box = gui.HBox(children=[api_url, self.api_url_value],
+                               style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+        username = gui.Label('Jenkins username')
+        self.username_value = gui.TextInput()
+        self.username_value.add_class("form-control input-lg")
+        username_box = gui.HBox(children=[username, self.username_value],
+                                style={'width': '500px', 'margin': '4px 10px', 'background-color': 'lightgray'})
+        password = gui.Label('Jenkins password')
+        self.password_value = gui.TextInput()
+        self.password_value.add_class("form-control input-lg")
+        password_box = gui.HBox(children=[password, self.password_value],
+                                style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+
+        bt_login = gui.Button('LOGIN')
+        bt_login.onclick.do(self.on_login)
+        bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
+        bt_renew.onclick.do(self.on_renew)
 
         self.lblsession_status = gui.Label('NOT LOGGED IN')
 
-        wid.append(self.api_url)
-        wid.append(self.username)
-        wid.append(self.passwrod)
-        wid.append(btlogin)
-        wid.append(btrenew)
+        wid.append(api_url_box)
+        wid.append(username_box)
+        wid.append(password_box)
+        wid.append(bt_login)
+        wid.append(bt_renew)
         wid.append(self.lblsession_status)
 
+        self.logined_api = gui.Label()
+        self.logined_user = gui.Label()
+        self.logined_info = gui.HBox(children=[self.logined_api, self.logined_user],
+                                     style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+        # Drop Down
+        self.dd = gui.DropDown(width='200px')
+        self.dd.style.update({'font-size': 'large'})
+        self.dd.add_class("form-control dropdown")
+        # self.item1 = gui.DropDownItem("First Choice")
+        # self.item2 = gui.DropDownItem("Second Item")
+        # self.dd.append(self.item1, 'item1')
+        # self.dd.append(self.item2, 'item2')
+        self.datainfo = gui.VBox(children=[self.logined_info, self.dd],
+                                 style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
         return wid
 
     def on_login(self, emitter):
+        server = jekins_server.login_jeknis(self.api_url_value.get_text(), self.username_value.get_text(),
+                                            self.password_value.get_text())
+        try:
+            server.get_whoami()
+        except Exception as result:
+            if '401' in str(result):
+                print("login failed!")
+                return
+        print('Hello %s from Jenkins %s' % (server.get_whoami()['fullName'], server.get_version()))
         self.login_manager.renew_session()
-        self.lblsession_status.set_text('LOGGED IN')
+        self.logined_api.set_text(self.api_url_value.get_text())
+        self.logined_user.set_text(server.get_whoami()['fullName'])
+
+        views = server.get_views()
+        for i in range(len(views)):
+            self.dd.append(gui.DropDownItem(views[i]))
+        self.set_root_widget(self.datainfo)
 
     def on_renew(self, emitter):
         if not self.login_manager.expired:
