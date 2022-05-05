@@ -211,8 +211,13 @@ class JenkinsHelper(App):
 
         # main start
         self.main_container = gui.Container(margin='0px auto')
-        self.main_container.set_size(1020, 600)
+        # self.main_container.set_size(1020, 600)
         self.main_container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
+
+        # maine-center start
+        self.center_container = gui.HBox(children=[],
+                                         style={'margin': '4px auto',
+                                                'background-color': 'lightgray'})
 
         # head start
         self.login_api = gui.Label()
@@ -220,10 +225,14 @@ class JenkinsHelper(App):
         self.logout_bt = gui.Button('LOG OUT')
         self.logout_bt.onclick.do(self.on_logout)
         self.head = gui.HBox(children=[self.login_api, self.login_user, self.logout_bt],
-                             style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+                             style={'margin': '4px auto', 'background-color': 'lightgray'})
         self.main_container.append(self.head)
         # head end
 
+        # maine-center start
+        self.left_container = gui.VBox(children=[],
+                                       style={'margin': '4px 4px',
+                                              'background-color': 'lightgray'})
         # view list
         self.view_list_dd = gui.DropDown(width='200px')
         self.view_list_dd.style.update({'font-size': 'large'})
@@ -231,17 +240,45 @@ class JenkinsHelper(App):
         self.view_list_dd.onchange.do(self.list_view_on_selected)
         # job list
         self.job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
-        self.main_container.append(self.view_list_dd, 'viewList')
-        self.main_container.append(self.job_list, 'jobList')
+        self.job_list.onselection.do(self.select_job)
+        self.left_container.append(self.view_list_dd, 'viewList')
+        self.left_container.append(self.job_list, 'jobList')
+        self.center_container.append(self.left_container)
 
+        self.selected_job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
+        self.selected_job_list.onselection.do(self.un_select_job)
+        self.right_container = gui.VBox(children=[self.selected_job_list],
+                                        style={'margin': '4px 4px',
+                                               'background-color': 'lightgray'})
+        self.center_container.append(self.right_container)
+
+        self.button_list = gui.VBox(children=[],
+                                    style={'background-color': 'lightgray'})
+        self.build_bt = gui.Button('build')
+        self.build_bt.onclick.do(self.on_build)
+        self.update_branch_bt = gui.Button('update branch')
+        # self.update_branch_bt.onclick.do(self.on_update_branch)
+        self.update_params_value_bt = gui.Button('update params value')
+        # self.update_params_value_bt.onclick.do(self.on_update_params_value)
+        self.add_params_bt = gui.Button('add params')
+        # self.add_params_bt.onclick.do(self.on_add_params)
+        self.button_list.append([self.build_bt, self.update_branch_bt, self.update_params_value_bt, self.add_params_bt])
+        self.center_container.append(self.button_list)
+
+        self.main_container.append(self.center_container)
+        # main end
+        self.selected_view = ''
+        self.selected_jobs = []
         # self.datainfo = gui.VBox(children=[self.logged_info],
         #                          style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-
-        return self.login_container
+        self.on_login(emitter=None)
+        # return self.login_container
+        return self.main_container
 
     def on_login(self, emitter):
-        jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(),
-                                       self.password_value.get_text()).server
+        # jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(),
+        #                                self.password_value.get_text()).server
+        jenkins_server = JenkinsServer('http://jenkins-cms.test.rabbitpre.com/', 'admin', 'admin@123').server
         try:
             jenkins_server.get_whoami()
         except Exception as result:
@@ -300,6 +337,27 @@ class JenkinsHelper(App):
         self.job_list.append(job_list_str)
         # self.list_job = gui.ListView.new_from_list(list_str, width=300, height=420, margin='10px')
         # self.main_container.append(self.list_job, 'jobList')
+
+    def on_build(self, emitter):
+
+        print('build')
+
+    def select_job(self, emitter, selected_item_key):
+
+        job_str = self.job_list.children[selected_item_key].get_text()
+        if job_str not in self.selected_jobs:
+            self.selected_job_list.append(job_str)
+            self.selected_jobs.append(job_str)
+        print(self.selected_jobs)
+
+    def un_select_job(self, emitter, selected_item_key):
+
+        job_str = self.selected_job_list.children[selected_item_key].get_text()
+        if job_str in self.selected_jobs:
+            self.selected_jobs.remove(job_str)
+            self.selected_job_list.empty()
+            self.selected_job_list.append(self.selected_jobs)
+        print(self.selected_jobs)
 
 
 if __name__ == "__main__":
