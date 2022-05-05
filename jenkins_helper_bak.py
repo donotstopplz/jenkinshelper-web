@@ -184,8 +184,8 @@ class JenkinsHelper(App):
         self.login_manager = LoginManager(CookieInterface(self), 60 * 20)
         self.login_manager.on_session_expired.do(self.on_logout)
 
-        # login start
-        self.login_container = gui.VBox(width=600, margin='100px auto')
+        self.wid = gui.VBox(width=600, margin='100px auto')
+        # Text Input
         api_url = gui.Label('Jenkins API URL')
         self.api_url_value = gui.TextInput()
         self.api_url_value.add_class("form-control input-lg")
@@ -201,43 +201,32 @@ class JenkinsHelper(App):
         self.password_value.add_class("form-control input-lg")
         password_box = gui.HBox(children=[password, self.password_value],
                                 style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
+
         bt_login = gui.Button('LOGIN')
         bt_login.onclick.do(self.on_login)
         # bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
         # bt_renew.onclick.do(self.on_renew)
+
         self.lblsession_status = gui.Label('NOT LOGGED IN')
-        self.login_container.append([api_url_box, username_box, password_box, bt_login, self.lblsession_status])
-        # login end
 
-        # main start
-        self.main_container = gui.Container(margin='0px auto')
-        self.main_container.set_size(1020, 600)
-        self.main_container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
+        self.wid.append(api_url_box)
+        self.wid.append(username_box)
+        self.wid.append(password_box)
+        self.wid.append(bt_login)
+        # wid.append(bt_renew)
+        self.wid.append(self.lblsession_status)
 
-        # head start
-        self.login_api = gui.Label()
-        self.login_user = gui.Label()
-        self.logout_bt = gui.Button('LOG OUT')
-        self.logout_bt.onclick.do(self.on_logout)
-        self.head = gui.HBox(children=[self.login_api, self.login_user, self.logout_bt],
-                             style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        self.main_container.append(self.head)
-        # head end
+        self.logined_api = gui.Label()
+        self.logined_user = gui.Label()
+        self.bt_logout = gui.Button('退出')
+        self.bt_logout.onclick.do(self.on_logout)
+        self.logged_info = gui.HBox(children=[self.logined_api, self.logined_user, self.bt_logout],
+                                    style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
 
-        # view list
-        self.view_list_dd = gui.DropDown(width='200px')
-        self.view_list_dd.style.update({'font-size': 'large'})
-        self.view_list_dd.add_class("form-control dropdown")
-        self.view_list_dd.onchange.do(self.list_view_on_selected)
-        # job list
-        self.job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
-        self.main_container.append(self.view_list_dd, 'viewList')
-        self.main_container.append(self.job_list, 'jobList')
+        self.datainfo = gui.VBox(children=[self.logged_info],
+                                 style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
 
-        # self.datainfo = gui.VBox(children=[self.logged_info],
-        #                          style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-
-        return self.login_container
+        return self.wid
 
     def on_login(self, emitter):
         jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(),
@@ -252,31 +241,26 @@ class JenkinsHelper(App):
         full_name = jenkins_server.get_whoami()['fullName']
         print('Hello %s from Jenkins %s' % (full_name, jenkins_server.get_version()))
         self.login_manager.renew_session()
-        self.login_api.set_text(self.api_url_value.get_text())
-        self.login_user.set_text(full_name)
+        self.logined_api.set_text(self.api_url_value.get_text())
+        self.logined_user.set_text(full_name)
 
         # Drop Down
-        # dd = gui.DropDown(width='200px')
-        # dd.style.update({'font-size': 'large'})
-        # dd.add_class("form-control dropdown")
-        # dd.onchange.do(self.list_view_on_selected)
+        dd = gui.DropDown(width='200px')
+        dd.style.update({'font-size': 'large'})
+        dd.add_class("form-control dropdown")
+        dd.onchange.do(self.list_view_on_selected)
         views = jenkins_server.get_views()
-        view_list_str = []
         for i in range(len(views)):
-            view_list_str.append(gui.DropDownItem(views[i]['name']))
-        self.view_list_dd.empty()
-        self.view_list_dd.append(view_list_str, 'view_list_str')
-        # self.datainfo.append(dd, 'dd')
-        jobs = jenkins_server.get_jobs(view_name=self.view_list_dd.get_value())
-        job_list_str = []
+            dd.append(gui.DropDownItem(views[i]['name']))
+        self.datainfo.append(dd, 'dd')
+        jobs = jenkins_server.get_jobs(view_name=dd.get_value())
+        liststr = []
         for job in jobs:
-            job_list_str.append(job['name'])
-        self.job_list.empty()
-        self.job_list.append(job_list_str)
-        # self.init_list_job = gui.ListView.new_from_list(init_job_list_str, width=300, height=420, margin='10px')
+            liststr.append(job['name'])
+        self.init_list_job = gui.ListView.new_from_list(liststr, width=300, height=420, margin='10px')
         # self.listJob.onselection.do(self.list_job_on_selected)
-        # self.datainfo.append(self.init_list_job, 'jobList')
-        self.set_root_widget(self.main_container)
+        self.datainfo.append(self.init_list_job, 'jobList')
+        self.set_root_widget(self.datainfo)
 
     def on_renew(self, emitter):
         if not self.login_manager.expired:
@@ -285,21 +269,18 @@ class JenkinsHelper(App):
         else:
             self.lblsession_status.set_text('UNABLE TO RENEW')
 
-    def on_logout(self, emitter):
-        global jenkins_server
-        jenkins_server = None
-        self.set_root_widget(self.login_container)
-        self.lblsession_status.set_text('LOGOUT')
-
     def list_view_on_selected(self, widget, selected_item_key):
         jobs = JenkinsServer.server.get_jobs(view_name=selected_item_key)
-        job_list_str = []
+        list_str = []
         for job in jobs:
-            job_list_str.append(job['name'])
-        self.job_list.empty()
-        self.job_list.append(job_list_str)
-        # self.list_job = gui.ListView.new_from_list(list_str, width=300, height=420, margin='10px')
-        # self.main_container.append(self.list_job, 'jobList')
+            list_str.append(job['name'])
+        self.list_job = gui.ListView.new_from_list(list_str, width=300, height=420, margin='10px')
+        self.datainfo.append(self.list_job, 'jobList')
+
+    def on_logout(self, emitter):
+        JenkinsServer.server = None
+        self.set_root_widget(self.wid)
+        self.lblsession_status.set_text('LOGOUT')
 
 
 if __name__ == "__main__":
