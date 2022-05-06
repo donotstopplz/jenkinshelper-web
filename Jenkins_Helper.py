@@ -221,7 +221,7 @@ class JenkinsHelper(App):
         bt_login.onclick.do(self.on_login)
         # bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
         # bt_renew.onclick.do(self.on_renew)
-        self.lblsession_status = gui.Label('NOT LOGGED IN')
+        self.lblsession_status = gui.Label()
         self.login_container.append([api_url_box, username_box, password_box, bt_login, self.lblsession_status])
         # login end
 
@@ -308,6 +308,11 @@ class JenkinsHelper(App):
         # return self.main_container
 
     def on_login(self, emitter):
+        if len(self.api_url_value.get_text()) == 0 or len(self.username_value.get_text()) == 0 or len(self.password_value.get_text()) == 0:
+            self.lblsession_status.set_text('login failed!')
+            return
+        else:
+            self.lblsession_status.set_text('login...')
         jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(), self.password_value.get_text()).server
         # jenkins_server = JenkinsServer('https://jenkins.lvlifeng.com/', 'jenkins', '2bbbbb').server
         try:
@@ -323,22 +328,13 @@ class JenkinsHelper(App):
         self.login_api.set_text(self.api_url_value.get_text())
         self.login_user.set_text(full_name)
 
-        # Drop Down
-        # dd = gui.DropDown(width='200px')
-        # dd.style.update({'font-size': 'large'})
-        # dd.add_class("form-control dropdown")
-        # dd.onchange.do(self.list_view_on_selected)
         views = jenkins_server.get_views()
         view_list_str = []
         for i in range(len(views)):
             view_list_str.append(gui.DropDownItem(views[i]['name']))
         self.view_list_dd.empty()
         self.view_list_dd.append(view_list_str, 'view_list_str')
-        # self.datainfo.append(dd, 'dd')
         self.init_job_list()
-        # self.init_list_job = gui.ListView.new_from_list(init_job_list_str, width=300, height=420, margin='10px')
-        # self.listJob.onselection.do(self.list_job_on_selected)
-        # self.datainfo.append(self.init_list_job, 'jobList')
         self.set_root_widget(self.main_container)
 
     def init_job_list(self):
@@ -355,7 +351,7 @@ class JenkinsHelper(App):
         global jenkins_server
         jenkins_server = None
         self.set_root_widget(self.login_container)
-        self.lblsession_status.set_text('LOGOUT')
+        self.lblsession_status.set_text('')
 
     def list_view_on_selected(self, widget, selected_item_key):
         self.refresh_job_list(selected_item_key)
@@ -391,9 +387,12 @@ class JenkinsHelper(App):
         self.build_last_failed = checked
 
     def do_build(self, widget):
-        build_params = self.build_params_input.get_text()
-        rebuild_times = self.rebuild_input.get_text()
+        build_params = self.build_params_input.get_text().strip()
         build_last_failed = self.build_last_failed
+        rebuild_times = self.rebuild_input.get_text().strip()
+        # if len(rebuild_times) != 0 and int(rebuild_times) != 0 and int(rebuild_times) > 0:
+            # TODO 重复构建
+            # print(rebuild_times)
         param_d = {}
         if len(build_params) != 0:
             param_list = build_params.split(',')
