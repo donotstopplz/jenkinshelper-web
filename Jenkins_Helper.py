@@ -12,6 +12,7 @@
    limitations under the License.
 """
 import datetime
+import logging
 
 import jenkins
 import xml.dom.minidom
@@ -606,4 +607,5 @@ def format_log(log):
 
 if __name__ == "__main__":
     # starts the webserver
-    start(JenkinsHelper, address='0.0.0.0', port=0, multiple_instance=False, debug=False)
+    logging.INFO
+    start(JenkinsHelper, address='0.0.0.0', port=0, multiple_instance=True, debug=False)
