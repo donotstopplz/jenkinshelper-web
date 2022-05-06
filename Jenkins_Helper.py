@@ -11,7 +11,11 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
+import datetime
+
 import jenkins
+import xml.dom.minidom
+import sys
 import remi.gui as gui
 from remi import start, App
 import random
@@ -176,6 +180,17 @@ class JenkinsServer:
         JenkinsServer.server = jenkins.Jenkins(url, username, password)
 
 
+class XmlStdin:
+    def __init__(self):
+        self.str = ""
+
+    def write(self, value):
+        self.str += value
+
+    def to_string(self):
+        return self.str
+
+
 class JenkinsHelper(App):
     def __init__(self, *args):
         super(JenkinsHelper, self).__init__(*args)
@@ -186,22 +201,22 @@ class JenkinsHelper(App):
 
         # login start
         self.login_container = gui.VBox(width=600, margin='100px auto')
-        api_url = gui.Label('Jenkins API URL')
-        self.api_url_value = gui.TextInput()
+        api_url = gui.Label('Jenkins API url', width=120, height=20, margin='1px auto')
+        self.api_url_value = gui.TextInput(width=400, margin='1px auto')
         self.api_url_value.add_class("form-control input-lg")
         api_url_box = gui.HBox(children=[api_url, self.api_url_value],
-                               style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        username = gui.Label('Jenkins username')
-        self.username_value = gui.TextInput()
+                               style={'width': '550px', 'margin': '4px auto', 'background-color': 'lightgray'})
+        username = gui.Label('Jenkins username', width=120, height=20, margin='1px auto')
+        self.username_value = gui.TextInput(width=400, margin='1px auto')
         self.username_value.add_class("form-control input-lg")
         username_box = gui.HBox(children=[username, self.username_value],
-                                style={'width': '500px', 'margin': '4px 10px', 'background-color': 'lightgray'})
-        password = gui.Label('Jenkins password')
-        self.password_value = gui.TextInput()
+                                style={'width': '550px', 'margin': '4px 10px', 'background-color': 'lightgray'})
+        password = gui.Label('Jenkins password', width=120, height=20, margin='1px auto')
+        self.password_value = gui.TextInput(width=400, margin='1px auto')
         self.password_value.add_class("form-control input-lg")
         password_box = gui.HBox(children=[password, self.password_value],
-                                style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        bt_login = gui.Button('LOGIN')
+                                style={'width': '550px', 'margin': '4px auto', 'background-color': 'lightgray'})
+        bt_login = gui.Button('LOGIN', width=200, height=30, margin='10px')
         bt_login.onclick.do(self.on_login)
         # bt_renew = gui.Button('RENEW BEFORE EXPIRATION')
         # bt_renew.onclick.do(self.on_renew)
@@ -210,7 +225,7 @@ class JenkinsHelper(App):
         # login end
 
         # main start
-        self.main_container = gui.Container(margin='0px auto')
+        self.main_container = gui.Container(width=900, margin='0px auto')
         # self.main_container.set_size(1020, 600)
         self.main_container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
 
@@ -222,7 +237,7 @@ class JenkinsHelper(App):
         # head start
         self.login_api = gui.Label()
         self.login_user = gui.Label()
-        self.logout_bt = gui.Button('LOG OUT')
+        self.logout_bt = gui.Button('LOG OUT', width=80, height=20, margin='4px')
         self.logout_bt.onclick.do(self.on_logout)
         self.head = gui.HBox(children=[self.login_api, self.login_user, self.logout_bt],
                              style={'margin': '4px auto', 'background-color': 'lightgray'})
@@ -234,51 +249,66 @@ class JenkinsHelper(App):
                                        style={'margin': '4px 4px',
                                               'background-color': 'lightgray'})
         # view list
+        self.view_lable = gui.Label("View", style={'margin': '0px 10px'})
         self.view_list_dd = gui.DropDown(width='200px')
         self.view_list_dd.style.update({'font-size': 'large'})
         self.view_list_dd.add_class("form-control dropdown")
         self.view_list_dd.onchange.do(self.list_view_on_selected)
+        self.view_container = gui.HBox(children=[self.view_lable, self.view_list_dd],
+                                         style={'margin': '4px auto',
+                                                'background-color': 'lightgray'})
         # job list
-        self.job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
-        self.job_list.onselection.do(self.select_job)
-        self.left_container.append(self.view_list_dd, 'viewList')
-        self.left_container.append(self.job_list, 'jobList')
+        self.job_list = []
+        self.job_list_view = gui.ListView.new_from_list(self.job_list, width=300, height=420, margin='10px')
+        self.job_list_view.onselection.do(self.select_job)
+        self.select_all_bt = gui.Button('Select All', width=100, height=30, margin='10px')
+        self.select_all_bt.onclick.do(self.on_select_all)
+        self.left_container.append(self.view_container, 'viewList')
+        self.left_container.append(self.job_list_view, 'jobList')
+        self.left_container.append(self.select_all_bt, 'all')
         self.center_container.append(self.left_container)
 
         self.selected_job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
         self.selected_job_list.onselection.do(self.un_select_job)
-        self.right_container = gui.VBox(children=[self.selected_job_list],
+        self.cleal_all_bt = gui.Button('Clear All', width=100, height=30, margin='10px')
+        self.cleal_all_bt.onclick.do(self.on_clear_all)
+        self.right_container = gui.VBox(children=[self.selected_job_list, self.cleal_all_bt],
                                         style={'margin': '4px 4px',
+                                               'margin-top': '30px',
                                                'background-color': 'lightgray'})
         self.center_container.append(self.right_container)
 
         self.button_list = gui.VBox(children=[],
                                     style={'background-color': 'lightgray'})
-        self.build_bt = gui.Button('build')
+        self.build_bt = gui.Button('Build', width=100, height=30, margin='10px')
         self.build_bt.onclick.do(self.on_build)
-        self.update_branch_bt = gui.Button('update branch')
-        # self.update_branch_bt.onclick.do(self.on_update_branch)
-        self.update_params_value_bt = gui.Button('update params value')
-        # self.update_params_value_bt.onclick.do(self.on_update_params_value)
-        self.add_params_bt = gui.Button('add params')
-        # self.add_params_bt.onclick.do(self.on_add_params)
-        self.button_list.append([self.build_bt, self.update_branch_bt, self.update_params_value_bt, self.add_params_bt])
+        self.update_bt = gui.Button('Update', width=100, height=30, margin='10px')
+        self.update_bt.onclick.do(self.on_update_job)
+        self.add_params_bt = gui.Button('Add params', width=100, height=30, margin='10px')
+        self.add_params_bt.onclick.do(self.on_add_params)
+        self.error_log_bt = gui.Button('Error log', width=100, height=30, margin='10px')
+        self.error_log_bt.onclick.do(self.on_error_log)
+        self.button_list.append(
+            [self.build_bt, self.update_bt, self.add_params_bt, self.error_log_bt])
         self.center_container.append(self.button_list)
 
-        self.main_container.append(self.center_container)
+        self.log_label = gui.TextInput(single_line=False, height='500px', margin='10px auto',
+                                       attributes={'readonly': 'readonly'})
+        self.log_container = gui.Container(width='900', margin='4px auto',
+                                           style='position: absolute; background-color: lightgray')
+        self.log_container.append(self.log_label)
+        self.main_container.append([self.center_container, self.log_container])
         # main end
         self.selected_view = ''
         self.selected_jobs = []
-        # self.datainfo = gui.VBox(children=[self.logged_info],
-        #                          style={'width': '500px', 'margin': '4px auto', 'background-color': 'lightgray'})
-        self.on_login(emitter=None)
-        # return self.login_container
-        return self.main_container
+
+        # self.on_login(emitter=None)
+        return self.login_container
+        # return self.main_container
 
     def on_login(self, emitter):
-        # jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(),
-        #                                self.password_value.get_text()).server
-        jenkins_server = JenkinsServer('http://jenkins-cms.test.rabbitpre.com/', 'admin', 'admin@123').server
+        jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(), self.password_value.get_text()).server
+        # jenkins_server = JenkinsServer('https://jenkins.lvlifeng.com/', 'jenkins', '2bbbbb').server
         try:
             jenkins_server.get_whoami()
         except Exception as result:
@@ -304,16 +334,14 @@ class JenkinsHelper(App):
         self.view_list_dd.empty()
         self.view_list_dd.append(view_list_str, 'view_list_str')
         # self.datainfo.append(dd, 'dd')
-        jobs = jenkins_server.get_jobs(view_name=self.view_list_dd.get_value())
-        job_list_str = []
-        for job in jobs:
-            job_list_str.append(job['name'])
-        self.job_list.empty()
-        self.job_list.append(job_list_str)
+        self.init_job_list()
         # self.init_list_job = gui.ListView.new_from_list(init_job_list_str, width=300, height=420, margin='10px')
         # self.listJob.onselection.do(self.list_job_on_selected)
         # self.datainfo.append(self.init_list_job, 'jobList')
         self.set_root_widget(self.main_container)
+
+    def init_job_list(self):
+        self.refresh_job_list(self.view_list_dd.get_value())
 
     def on_renew(self, emitter):
         if not self.login_manager.expired:
@@ -329,25 +357,73 @@ class JenkinsHelper(App):
         self.lblsession_status.set_text('LOGOUT')
 
     def list_view_on_selected(self, widget, selected_item_key):
-        jobs = JenkinsServer.server.get_jobs(view_name=selected_item_key)
-        job_list_str = []
+        self.refresh_job_list(selected_item_key)
+
+    def refresh_job_list(self, view):
+        jobs = JenkinsServer.server.get_jobs(view_name=view)
+        self.job_list = []
         for job in jobs:
-            job_list_str.append(job['name'])
-        self.job_list.empty()
-        self.job_list.append(job_list_str)
-        # self.list_job = gui.ListView.new_from_list(list_str, width=300, height=420, margin='10px')
-        # self.main_container.append(self.list_job, 'jobList')
+            self.job_list.append(job['name'])
+        self.job_list_view.empty()
+        self.job_list_view.append(self.job_list)
+        self.check_selected_job()
 
     def on_build(self, emitter):
+        self.build_dialog = gui.GenericDialog('Build',
+                                              width=500)
+        self.build_params_input = gui.TextInput(width=300, height=20)
+        self.build_dialog.add_field_with_label('build params input', 'Build with params. e.g. docker_image_tag=v1,param_demo=xxx', self.build_params_input)
 
-        print('build')
+        self.rebuild_input = gui.TextInput(width=100, height=20)
+        self.rebuild_input.set_text("0")
+        self.build_dialog.add_field_with_label('re build', 'rebuild times if last failed', self.rebuild_input)
+
+        self.build_last_failed = False
+        self.build_last_failed_checkbox = gui.CheckBoxLabel('build last failed')
+        self.build_last_failed_checkbox.onchange.do(self.on_build_last_failed)
+        self.build_dialog.add_field('last failed', self.build_last_failed_checkbox)
+
+        self.build_dialog.confirm_dialog.do(self.do_build)
+        self.build_dialog.show(self)
+
+    def on_build_last_failed(self, widget, checked):
+        self.build_last_failed = checked
+
+    def do_build(self, widget):
+        build_params = self.build_params_input.get_text()
+        rebuild_times = self.rebuild_input.get_text()
+        build_last_failed = self.build_last_failed
+        param_d = {}
+        if len(build_params) != 0:
+            param_list = build_params.split(',')
+            for param in param_list:
+                if len(param) != 0 and param != 'param_demo=xxx':
+                    param_d[param.split('=')[0].strip()] = param.split('=')[1].strip()
+        log_str = ''
+        for job in self.selected_jobs:
+            try:
+                if build_last_failed:
+                    job_info = JenkinsServer.server.get_job_info(job)
+                    build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
+                                   job_info['lastFailedBuild']['number']
+                    if not build_failed:
+                        continue
+                if len(param_d) != 0:
+                    JenkinsServer.server.build_job(job, param_d)
+                else:
+                    JenkinsServer.server.build_job(job)
+                log_str += format_log(f'add {job} into build queue!')
+            except Exception:
+                log_str += format_log(f'job {job} build error! check job params or others')
+            self.log_label.set_text(log_str)
 
     def select_job(self, emitter, selected_item_key):
 
-        job_str = self.job_list.children[selected_item_key].get_text()
+        job_str = self.job_list_view.children[selected_item_key].get_text()
         if job_str not in self.selected_jobs:
             self.selected_job_list.append(job_str)
             self.selected_jobs.append(job_str)
+        self.check_selected_job()
         print(self.selected_jobs)
 
     def un_select_job(self, emitter, selected_item_key):
@@ -357,7 +433,175 @@ class JenkinsHelper(App):
             self.selected_jobs.remove(job_str)
             self.selected_job_list.empty()
             self.selected_job_list.append(self.selected_jobs)
+        self.check_selected_job()
         print(self.selected_jobs)
+
+    def check_selected_job(self):
+        if len(self.selected_jobs) == 0:
+            self.build_bt.set_enabled(False)
+            self.update_bt.set_enabled(False)
+            self.add_params_bt.set_enabled(False)
+            self.error_log_bt.set_enabled(False)
+        else:
+            self.build_bt.set_enabled(True)
+            self.update_bt.set_enabled(True)
+            self.add_params_bt.set_enabled(True)
+            self.error_log_bt.set_enabled(True)
+
+    def on_error_log(self, emitter):
+        log_str = ''
+        for job in self.selected_jobs:
+            job_info = JenkinsServer.server.get_job_info(job)
+            build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
+                           job_info['lastFailedBuild']['number']
+            if build_failed:
+                log_str += format_log(f'job name [{job}]')
+                print(format_log(f'job name [{job}]'))
+                build_info = JenkinsServer.server.get_build_console_output(job, job_info['lastBuild']['number'])
+                err_msgs = build_info.splitlines(False)
+                for err_msg in err_msgs:
+                    if 'error' in err_msg.lower() or 'failure' in err_msg.lower():
+                        log_str += format_log(err_msg)
+                        print(format_log(err_msg))
+                log_str += '\n'
+            self.log_label.set_text(log_str)
+
+    def on_update_job(self, widget):
+        self.add_params_dialog = gui.GenericDialog('Update Job', width=500)
+        self.add_params_dialog.confirm_dialog.do(self.do_update)
+        self.git_branch_input = gui.TextInput(width=300, height=20)
+        # self.git_branch_input.set_value('prod')
+        self.add_params_dialog.add_field_with_label('u_git_branch', 'new git branch', self.git_branch_input)
+
+        self.string_param_input = gui.TextInput(width=300, height=20)
+        # self.git_branch_input.set_value('prod')
+        self.add_params_dialog.add_field_with_label('u_string_params', 'string params(a=1,b=2)',
+                                                    self.string_param_input)
+
+        self.add_params_dialog.show(self)
+
+    def do_update(self, widget):
+        new_branch = self.git_branch_input.get_text().strip()
+        new_string_params = self.string_param_input.get_text()
+        if len(new_branch) == 0 and len(new_string_params) == 0:
+            self.log_label.set_text(format_log('update done. update params is null'))
+            return
+        log_str = ''
+        for job in self.selected_jobs:
+            try:
+                config = JenkinsServer.server.get_job_config(name=job)
+                print(config)
+                dom = xml.dom.minidom.parseString(config)
+                update = False
+                if len(new_branch) != 0:
+                    branches = dom.getElementsByTagName("hudson.plugins.git.BranchSpec")
+                    for branch in branches:
+                        name = branch.getElementsByTagName('name')[0]
+                        name.childNodes[0].data = new_branch
+                        update = True
+                if len(new_string_params) != 0:
+                    param_d = {}
+                    param_list = new_string_params.split(',')
+                    for param in param_list:
+                        if len(param) != 0:
+                            param_d[param.split('=')[0].strip()] = param.split('=')[1].strip()
+                    parameters = dom.getElementsByTagName("hudson.model.StringParameterDefinition")
+                    for parameter in parameters:
+                        param_name = parameter.getElementsByTagName('name')[0].childNodes[0].data
+                        if param_name in param_d.keys():
+                            param_default_value = parameter.getElementsByTagName('defaultValue')
+                            if len(param_default_value) != 0:
+                                parameter.getElementsByTagName('defaultValue')[0].childNodes[0].data = param_d[
+                                    param_name]
+                            else:
+                                default_value_str = f'<defaultValue>{param_d[param_name]}</defaultValue>'
+                                default_value_dom = xml.dom.minidom.parseString(default_value_str)
+                                parameter.appendChild(default_value_dom.getElementsByTagName('defaultValue')[0])
+                            update = True
+                if update:
+                    xml_stdin = XmlStdin()
+                    sys.stdin = xml_stdin
+                    dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
+                    JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
+                log_str += format_log(f'job name {job} update successful!')
+                print(format_log(f'job name {job} update successful!'))
+            except Exception as result:
+                log_str += format_log(f'job name {job} update failed! error msg: {result}')
+                print(format_log(f'job name {job} update failed! error msg: {result}'))
+            self.log_label.set_text(log_str)
+
+    def on_add_params(self, widget):
+        self.add_params_dialog = gui.GenericDialog('Add params', width=500)
+        self.add_params_dialog.confirm_dialog.do(self.do_add_params)
+        self.add_string_param_input = gui.TextInput(width=300, height=50)
+        self.add_string_param_input.set_value('name=docker_image_tag,description=镜像tag,defaultValue=v1')
+        self.add_params_dialog.add_field_with_label('u_add_string_params', 'add_string_params',
+                                                    self.add_string_param_input)
+
+        self.add_params_dialog.show(self)
+
+    def do_add_params(self, widget):
+
+        string_param = self.add_string_param_input.get_text()
+        if len(string_param) == 0:
+            self.log_label.set_text(format_log('add params done. string params is null'))
+            return
+        param_d = {}
+        param_list = string_param.split(',')
+        for param in param_list:
+            if len(param) != 0:
+                param_d[param.split('=')[0].strip()] = param.split('=')[1].strip()
+        if len(param_d) == 0:
+            self.log_label.set_text(format_log('add params done. string params is null'))
+            return
+        string_param_str = \
+            '<hudson.model.ParametersDefinitionProperty> \n' \
+            '     <parameterDefinitions> \n' \
+            '         <hudson.model.StringParameterDefinition> \n' \
+            '             <name>' + param_d['name'] + '</name> \n' \
+            '             <description>' + param_d['description'] + '</description> \n' \
+            '             <defaultValue>' + param_d['defaultValue'] + '</defaultValue> \n' \
+            '             <trim>false</trim>  \n' \
+            '         </hudson.model.StringParameterDefinition> \n' \
+            '     </parameterDefinitions> \n' \
+            '</hudson.model.ParametersDefinitionProperty>'
+        string_param_dom = xml.dom.minidom.parseString(string_param_str)
+        log_str = ''
+        for job in self.selected_jobs:
+            try:
+                config = JenkinsServer.server.get_job_config(name=job['name'])
+                dom = xml.dom.minidom.parseString(config)
+                properties = dom.getElementsByTagName('properties')
+                properties[0].appendChild(
+                    string_param_dom.getElementsByTagName('hudson.model.ParametersDefinitionProperty')[0])
+                xml_stdin = XmlStdin()
+                sys.stdin = xml_stdin
+                dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
+                JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
+                log_str += format_log(f'job name {job} add params successful!')
+                print(format_log(f'job name {job} add params successful!'))
+            except Exception as result:
+                log_str += format_log(f'job name {job} add params failed! error msg: {result}')
+                print(format_log(f'job name {job} add params failed! error msg: {result}'))
+        self.log_label.set_text(log_str)
+
+    def on_select_all(self, widget):
+        self.selected_jobs = []
+        for job_str in self.job_list:
+            self.selected_jobs.append(job_str)
+        self.selected_job_list.append(self.selected_jobs)
+        self.check_selected_job()
+
+    def on_clear_all(self, widget):
+        self.selected_jobs = []
+        self.selected_job_list.empty()
+        self.selected_job_list.append(self.selected_jobs)
+        self.check_selected_job()
+
+
+def format_log(log):
+    time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return f'{time} {log}\n'
 
 
 if __name__ == "__main__":
