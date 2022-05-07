@@ -399,6 +399,7 @@ class JenkinsHelper(App):
     def on_stop_rebuild(self, widget):
         self.stop_rebuild_bt.set_enabled(False)
         self.rebuild = False
+        self.log_label.set_text(format_log('Rebuild stopped'))
 
     def exec_build(self):
         build_params = self.build_params_input.get_text().strip()
@@ -412,12 +413,14 @@ class JenkinsHelper(App):
         log_str = ''
         for job in self.selected_jobs:
             try:
+                job_info = JenkinsServer.server.get_job_info(job)
                 if build_last_failed:
-                    job_info = JenkinsServer.server.get_job_info(job)
                     build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
                                    job_info['lastFailedBuild']['number']
-                    if not build_failed or job_info['queueItem'] is not None:
+                    if not build_failed:
                         continue
+                if job_info['queueItem'] is not None or job_info['lastCompletedBuild']['number'] != job_info['lastBuild']['number']:
+                    continue
                 if len(param_d) != 0:
                     JenkinsServer.server.build_job(job, param_d)
                 else:
@@ -610,6 +613,8 @@ class JenkinsHelper(App):
         self.selected_jobs = []
         self.selected_job_list.empty()
         self.selected_job_list.append(self.selected_jobs)
+        self.rebuild = False
+        self.stop_rebuild_bt.set_enabled(False)
         self.check_selected_job()
 
 
@@ -620,4 +625,4 @@ def format_log(log):
 
 if __name__ == "__main__":
     # starts the webserver
-    start(JenkinsHelper, address='0.0.0.0', port=0, multiple_instance=True, debug=False)
+    start(JenkinsHelper, address='0.0.0.0', port=11111, multiple_instance=True, debug=False)
