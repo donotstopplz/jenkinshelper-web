@@ -12,7 +12,7 @@
    limitations under the License.
 """
 import datetime
-
+import ssl
 import jenkins
 import xml.dom.minidom
 import sys
@@ -464,8 +464,6 @@ class JenkinsHelper(App):
             self.error_log_bt.set_enabled(True)
 
     def on_error_log(self, emitter):
-        t = threading.Thread(target=self.my_intensive_long_time_algorithm)
-        t.start()
         log_str = ''
         for job in self.selected_jobs:
             job_info = JenkinsServer.server.get_job_info(job)
