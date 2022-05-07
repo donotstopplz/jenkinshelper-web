@@ -12,7 +12,6 @@
    limitations under the License.
 """
 import datetime
-import logging
 
 import jenkins
 import xml.dom.minidom
@@ -195,6 +194,7 @@ class XmlStdin:
 class JenkinsHelper(App):
     def __init__(self, *args):
         super(JenkinsHelper, self).__init__(*args)
+        self.rebuild = None
 
     def main(self, name='hello world'):
         self.login_manager = LoginManager(CookieInterface(self), 60 * 20)
@@ -289,8 +289,11 @@ class JenkinsHelper(App):
         self.add_params_bt.onclick.do(self.on_add_params)
         self.error_log_bt = gui.Button('Error log', width=100, height=30, margin='10px')
         self.error_log_bt.onclick.do(self.on_error_log)
+        self.stop_rebuild_bt = gui.Button('Clear rebuild', width=100, height=30, margin='10px')
+        self.stop_rebuild_bt.onclick.do(self.on_stop_rebuild)
+        self.stop_rebuild_bt.set_enabled(False)
         self.button_list.append(
-            [self.build_bt, self.update_bt, self.add_params_bt, self.error_log_bt])
+            [self.build_bt, self.update_bt, self.add_params_bt, self.error_log_bt, self.stop_rebuild_bt])
         self.center_container.append(self.button_list)
 
         self.log_label = gui.TextInput(single_line=False, height='500px', margin='10px auto',
@@ -371,9 +374,9 @@ class JenkinsHelper(App):
         self.build_params_input = gui.TextInput(width=300, height=20)
         self.build_dialog.add_field_with_label('build params input', 'Build with params. e.g. docker_image_tag=v1,param_demo=xxx', self.build_params_input)
 
-        self.rebuild_input = gui.TextInput(width=100, height=20)
-        self.rebuild_input.set_text("0")
-        self.build_dialog.add_field_with_label('re build', 'rebuild times if last failed', self.rebuild_input)
+        self.rebuild_checkbox = gui.CheckBoxLabel('rebuild until success')
+        self.rebuild_checkbox.onchange.do(self.on_rebuild)
+        self.build_dialog.add_field('re build', self.rebuild_checkbox)
 
         self.build_last_failed = False
         self.build_last_failed_checkbox = gui.CheckBoxLabel('build last failed')
@@ -382,17 +385,24 @@ class JenkinsHelper(App):
 
         self.build_dialog.confirm_dialog.do(self.do_build)
         self.build_dialog.show(self)
+    def on_rebuild(self, widget, checked):
+        self.rebuild = checked
 
     def on_build_last_failed(self, widget, checked):
         self.build_last_failed = checked
 
     def do_build(self, widget):
+        if self.rebuild:
+            self.stop_rebuild_bt.set_enabled(True)
+        self.exec_build()
+
+    def on_stop_rebuild(self, widget):
+        self.stop_rebuild_bt.set_enabled(False)
+        self.rebuild = False
+
+    def exec_build(self):
         build_params = self.build_params_input.get_text().strip()
         build_last_failed = self.build_last_failed
-        rebuild_times = self.rebuild_input.get_text().strip()
-        # if len(rebuild_times) != 0 and int(rebuild_times) != 0 and int(rebuild_times) > 0:
-            # TODO 重复构建
-            # print(rebuild_times)
         param_d = {}
         if len(build_params) != 0:
             param_list = build_params.split(',')
@@ -406,7 +416,7 @@ class JenkinsHelper(App):
                     job_info = JenkinsServer.server.get_job_info(job)
                     build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
                                    job_info['lastFailedBuild']['number']
-                    if not build_failed:
+                    if not build_failed or job_info['queueItem'] is not None:
                         continue
                 if len(param_d) != 0:
                     JenkinsServer.server.build_job(job, param_d)
@@ -416,6 +426,8 @@ class JenkinsHelper(App):
             except Exception:
                 log_str += format_log(f'job {job} build error! check job params or others')
             self.log_label.set_text(log_str)
+        if self.rebuild:
+            threading.Timer(60 / 10.0, self.exec_build).start()
 
     def select_job(self, emitter, selected_item_key):
 
@@ -449,6 +461,8 @@ class JenkinsHelper(App):
             self.error_log_bt.set_enabled(True)
 
     def on_error_log(self, emitter):
+        t = threading.Thread(target=self.my_intensive_long_time_algorithm)
+        t.start()
         log_str = ''
         for job in self.selected_jobs:
             job_info = JenkinsServer.server.get_job_info(job)
@@ -606,5 +620,4 @@ def format_log(log):
 
 if __name__ == "__main__":
     # starts the webserver
-    logging.INFO
     start(JenkinsHelper, address='0.0.0.0', port=0, multiple_instance=True, debug=False)
