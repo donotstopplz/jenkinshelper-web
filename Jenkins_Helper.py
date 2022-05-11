@@ -12,6 +12,8 @@
    limitations under the License.
 """
 import datetime
+import os
+
 import jenkins
 import xml.dom.minidom
 import sys
@@ -192,10 +194,12 @@ class XmlStdin:
 
 class JenkinsHelper(App):
     def __init__(self, *args):
-        super(JenkinsHelper, self).__init__(*args)
+        res_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'res')
+        super(JenkinsHelper, self).__init__(*args, static_file_path={'hi': res_path})
         self.rebuild = None
 
     def main(self, name='hello world'):
+        self.set_favicon()
         self.login_manager = LoginManager(CookieInterface(self), 60 * 20)
         self.login_manager.on_session_expired.do(self.on_logout)
 
@@ -623,6 +627,28 @@ class JenkinsHelper(App):
         self.stop_build_bt.set_enabled(False)
         self.check_selected_job()
 
+    def set_favicon(self):
+        # custom additional html head tags
+        my_html_head = """
+                    """
+
+        # custom css
+        my_css_head = """
+                    <link rel="stylesheet" href="" type="text/css">
+                    """
+
+        # custom js
+        my_js_head = """
+                    <script></script>
+                    """
+        # appending elements to page header
+        self.page.children['head'].add_child('myhtml', my_html_head)
+        self.page.children['head'].add_child('mycss', my_css_head)
+        self.page.children['head'].add_child('myjs', my_js_head)
+
+        # setting up the application icon
+        self.page.children['head'].set_icon_file("/hi:favicon.svg")
+
 
 def format_log(log):
     time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -631,4 +657,4 @@ def format_log(log):
 
 if __name__ == "__main__":
     # starts the webserver
-    start(JenkinsHelper, address='0.0.0.0', port=11111, multiple_instance=True, debug=False)
+    start(JenkinsHelper, address='0.0.0.0', port=11112, multiple_instance=True, debug=False)
