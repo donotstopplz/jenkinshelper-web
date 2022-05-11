@@ -382,9 +382,13 @@ class JenkinsHelper(App):
                                                'Build with params. e.g. docker_image_tag=v1,param_demo=xxx',
                                                self.build_params_input)
 
-        self.rebuild_checkbox = gui.CheckBoxLabel('rebuild until success')
+        self.rebuild_container = gui.HBox(width='100%')
+        self.rebuild_checkbox = gui.CheckBoxLabel('Rebuild time interval if this build failed', style={'width': '60%'})
         self.rebuild_checkbox.onchange.do(self.on_rebuild)
-        self.build_dialog.add_field('re build', self.rebuild_checkbox)
+        self.spin_column_count = gui.SpinBox(0, 0, 20, style={'width': '40%'})
+        self.rebuild_suffix_lable = gui.Label("min")
+        self.rebuild_container.append([self.rebuild_checkbox, self.spin_column_count, self.rebuild_suffix_lable])
+        self.build_dialog.add_field('re build', self.rebuild_container)
 
         self.build_last_failed = False
         self.build_last_failed_checkbox = gui.CheckBoxLabel('build last failed')
@@ -403,12 +407,10 @@ class JenkinsHelper(App):
     def do_build(self, widget):
         if self.rebuild:
             self.build_bt.set_text("Stop Build")
-            # self.build_bt.onclick.do(self.on_stop_rebuild())
         self.exec_build()
 
-    def on_stop_rebuild(self, widget):
+    def on_stop_rebuild(self):
         self.build_bt.set_text("Build")
-        # self.build_bt.onclick.do(self.on_build())
         self.rebuild = False
         self.log_label.set_text(format_log('Build Stop!'))
 
@@ -436,13 +438,14 @@ class JenkinsHelper(App):
                     JenkinsServer.server.build_job(job, param_d)
                 else:
                     JenkinsServer.server.build_job(job)
-                log_str += format_log(f'add {job} into build queue!')
+                log_str += format_log(f'Add [{job}] into build queue!')
             except Exception:
-                log_str += format_log(f'job {job} build error! check job params or others')
-                self.build_bt.set_text("Build")
+                log_str += format_log(f'Job [{job}] build error! check job params or others')
+                if not self.rebuild:
+                    self.build_bt.set_text("Build")
             self.log_label.set_text(log_str)
         if self.rebuild:
-            threading.Timer(60 / 10.0, self.exec_build).start()
+            threading.Timer(self.spin_column_count.get_value() * 60, self.exec_build).start()
 
     def select_job(self, emitter, selected_item_key):
 
@@ -482,8 +485,8 @@ class JenkinsHelper(App):
             build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
                            job_info['lastFailedBuild']['number']
             if build_failed:
-                log_str += format_log(f'job name [{job}]')
-                print(format_log(f'job name [{job}]'))
+                log_str += format_log(f'Job  [{job}] build failed!')
+                print(format_log(f'Job [{job}] build failed!'))
                 build_info = JenkinsServer.server.get_build_console_output(job, job_info['lastBuild']['number'])
                 err_msgs = build_info.splitlines(False)
                 for err_msg in err_msgs:
@@ -511,7 +514,7 @@ class JenkinsHelper(App):
         new_branch = self.git_branch_input.get_text().strip()
         new_string_params = self.string_param_input.get_text()
         if len(new_branch) == 0 and len(new_string_params) == 0:
-            self.log_label.set_text(format_log('update done. update params is null'))
+            self.log_label.set_text(format_log('Update failed. update params is null'))
             return
         log_str = ''
         for job in self.selected_jobs:
@@ -550,11 +553,11 @@ class JenkinsHelper(App):
                     sys.stdin = xml_stdin
                     dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
                     JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
-                log_str += format_log(f'job name {job} update successful!')
-                print(format_log(f'job name {job} update successful!'))
+                log_str += format_log(f'Job {job} update successful!')
+                print(format_log(f'Job {job} update successful!'))
             except Exception as result:
-                log_str += format_log(f'job name {job} update failed! error msg: {result}')
-                print(format_log(f'job name {job} update failed! error msg: {result}'))
+                log_str += format_log(f'Job {job} update failed! error msg: {result}')
+                print(format_log(f'Job {job} update failed! error msg: {result}'))
             self.log_label.set_text(log_str)
 
     def on_add_params(self, widget):
@@ -571,7 +574,7 @@ class JenkinsHelper(App):
 
         string_param = self.add_string_param_input.get_text()
         if len(string_param) == 0:
-            self.log_label.set_text(format_log('add params done. string params is null'))
+            self.log_label.set_text(format_log('Add params failed. string params is null'))
             return
         param_d = {}
         param_list = string_param.split(',')
@@ -579,7 +582,7 @@ class JenkinsHelper(App):
             if len(param) != 0:
                 param_d[param.split('=')[0].strip()] = param.split('=')[1].strip()
         if len(param_d) == 0:
-            self.log_label.set_text(format_log('add params done. string params is null'))
+            self.log_label.set_text(format_log('Add params failed. string params is null'))
             return
         string_param_str = \
             '<hudson.model.ParametersDefinitionProperty> \n' \
@@ -605,11 +608,11 @@ class JenkinsHelper(App):
                 sys.stdin = xml_stdin
                 dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
                 JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
-                log_str += format_log(f'job name {job} add params successful!')
-                print(format_log(f'job name {job} add params successful!'))
+                log_str += format_log(f'Job {job} add params successful!')
+                print(format_log(f'Job {job} add params successful!'))
             except Exception as result:
-                log_str += format_log(f'job name {job} add params failed! error msg: {result}')
-                print(format_log(f'job name {job} add params failed! error msg: {result}'))
+                log_str += format_log(f'Job {job} add params failed! error msg: {result}')
+                print(format_log(f'Job {job} add params failed! error msg: {result}'))
         self.log_label.set_text(log_str)
 
     def on_select_all(self, widget):
@@ -652,7 +655,7 @@ class JenkinsHelper(App):
 
 def format_log(log):
     time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    return f'{time} {log}\n'
+    return f'{time}   {log}\n'
 
 
 if __name__ == "__main__":
