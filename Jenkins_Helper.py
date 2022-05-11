@@ -12,7 +12,6 @@
    limitations under the License.
 """
 import datetime
-import ssl
 import jenkins
 import xml.dom.minidom
 import sys
@@ -289,11 +288,8 @@ class JenkinsHelper(App):
         self.add_params_bt.onclick.do(self.on_add_params)
         self.error_log_bt = gui.Button('Error log', width=100, height=30, margin='10px')
         self.error_log_bt.onclick.do(self.on_error_log)
-        self.stop_rebuild_bt = gui.Button('Clear rebuild', width=100, height=30, margin='10px')
-        self.stop_rebuild_bt.onclick.do(self.on_stop_rebuild)
-        self.stop_rebuild_bt.set_enabled(False)
         self.button_list.append(
-            [self.build_bt, self.update_bt, self.add_params_bt, self.error_log_bt, self.stop_rebuild_bt])
+            [self.build_bt, self.update_bt, self.add_params_bt, self.error_log_bt])
         self.center_container.append(self.button_list)
 
         self.log_label = gui.TextInput(single_line=False, height='500px', margin='10px auto',
@@ -369,10 +365,18 @@ class JenkinsHelper(App):
         self.check_selected_job()
 
     def on_build(self, emitter):
+        if self.build_bt.get_text() == 'Build':
+            self.show_build_dialog()
+        else:
+            self.on_stop_rebuild()
+
+    def show_build_dialog(self):
         self.build_dialog = gui.GenericDialog('Build',
                                               width=500)
         self.build_params_input = gui.TextInput(width=300, height=20)
-        self.build_dialog.add_field_with_label('build params input', 'Build with params. e.g. docker_image_tag=v1,param_demo=xxx', self.build_params_input)
+        self.build_dialog.add_field_with_label('build params input',
+                                               'Build with params. e.g. docker_image_tag=v1,param_demo=xxx',
+                                               self.build_params_input)
 
         self.rebuild_checkbox = gui.CheckBoxLabel('rebuild until success')
         self.rebuild_checkbox.onchange.do(self.on_rebuild)
@@ -385,6 +389,7 @@ class JenkinsHelper(App):
 
         self.build_dialog.confirm_dialog.do(self.do_build)
         self.build_dialog.show(self)
+
     def on_rebuild(self, widget, checked):
         self.rebuild = checked
 
@@ -393,13 +398,15 @@ class JenkinsHelper(App):
 
     def do_build(self, widget):
         if self.rebuild:
-            self.stop_rebuild_bt.set_enabled(True)
+            self.build_bt.set_text("Stop Build")
+            # self.build_bt.onclick.do(self.on_stop_rebuild())
         self.exec_build()
 
     def on_stop_rebuild(self, widget):
-        self.stop_rebuild_bt.set_enabled(False)
+        self.build_bt.set_text("Build")
+        # self.build_bt.onclick.do(self.on_build())
         self.rebuild = False
-        self.log_label.set_text(format_log('Rebuild stopped'))
+        self.log_label.set_text(format_log('Build Stop!'))
 
     def exec_build(self):
         build_params = self.build_params_input.get_text().strip()
@@ -428,6 +435,7 @@ class JenkinsHelper(App):
                 log_str += format_log(f'add {job} into build queue!')
             except Exception:
                 log_str += format_log(f'job {job} build error! check job params or others')
+                self.build_bt.set_text("Build")
             self.log_label.set_text(log_str)
         if self.rebuild:
             threading.Timer(60 / 10.0, self.exec_build).start()
@@ -612,7 +620,7 @@ class JenkinsHelper(App):
         self.selected_job_list.empty()
         self.selected_job_list.append(self.selected_jobs)
         self.rebuild = False
-        self.stop_rebuild_bt.set_enabled(False)
+        self.stop_build_bt.set_enabled(False)
         self.check_selected_job()
 
 
