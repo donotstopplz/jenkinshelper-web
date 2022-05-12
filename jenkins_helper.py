@@ -216,9 +216,10 @@ class JenkinsHelper(App):
         username_box = gui.HBox(children=[username, self.username_value],
                                 style={'width': '550px', 'margin': '4px 10px', 'background-color': 'lightgray'})
         password = gui.Label('Jenkins password', width=120, height=20, margin='1px auto')
-        self.password_value = gui.TextInput(width=400, margin='1px auto')
-        self.password_value.add_class("form-control input-lg")
-        password_box = gui.HBox(children=[password, self.password_value],
+        self.password_value_text = gui.TextInput(width=400, margin='1px auto')
+        self.password_value_text.add_class("form-control input-lg")
+        self.password_value_text.onchange.do(self.get_password_value)
+        password_box = gui.HBox(children=[password, self.password_value_text],
                                 style={'width': '550px', 'margin': '4px auto', 'background-color': 'lightgray'})
         bt_login = gui.Button('LOGIN', width=200, height=30, margin='10px')
         bt_login.onclick.do(self.on_login)
@@ -310,13 +311,21 @@ class JenkinsHelper(App):
         return self.login_container
         # return self.main_container
 
+    def get_password_value(self, emitter, value):
+        self.password_value = value
+        show_value = ''
+        for i in range(len(str(value))):
+            show_value += '*'
+        self.password_value_text.set_text(show_value)
+
+
     def on_login(self, emitter):
-        if len(self.api_url_value.get_text()) == 0 or len(self.username_value.get_text()) == 0 or len(self.password_value.get_text()) == 0:
+        if len(self.api_url_value.get_text()) == 0 or len(self.username_value.get_text()) == 0 or len(self.password_value_text.get_text()) == 0:
             self.lblsession_status.set_text('login failed!')
             return
         else:
             self.lblsession_status.set_text('login...')
-        jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(), self.password_value.get_text()).server
+        jenkins_server = JenkinsServer(self.api_url_value.get_text(), self.username_value.get_text(), self.password_value).server
         # jenkins_server = JenkinsServer('https://jenkins.lvlifeng.com/', 'jenkins', '2bbbbb').server
         try:
             jenkins_server.get_whoami()
