@@ -1,7 +1,8 @@
-# This is a sample Python script.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# @Author  Lv Lifeng
+# @Time    2022-05-05 02:23
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 import jenkins_helper
 
 # Config
@@ -11,7 +12,6 @@ port = 11111
 username = None
 password = None
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     jenkins_helper.start(
         jenkins_helper.JenkinsHelper,
@@ -23,4 +23,3 @@ if __name__ == '__main__':
         password=password
     )
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
