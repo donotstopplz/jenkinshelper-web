@@ -7,6 +7,7 @@ import jenkins_helper
 # Config
 ipaddress = '0.0.0.0'
 port = 11111
+# set username and password for this web server not jenkins
 username = None
 password = None
 
