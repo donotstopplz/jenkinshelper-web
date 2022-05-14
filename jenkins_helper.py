@@ -421,7 +421,7 @@ class JenkinsHelper(App):
     def do_build(self, widget):
         if self.rebuild:
             self.build_bt.set_text("Stop Build")
-        self.exec_build()
+        threading.Thread(target=self.exec_build()).start()
 
     def on_stop_rebuild(self):
         self.build_bt.set_text("Build")
@@ -459,7 +459,7 @@ class JenkinsHelper(App):
                     self.build_bt.set_text("Build")
             self.log_label.set_text(log_str)
         if self.rebuild:
-            threading.Timer(self.spin_column_count.get_value() * 60, self.exec_build).start()
+            threading.Timer(int(self.spin_column_count.get_value()) * 60, self.exec_build).start()
 
     def select_job(self, emitter, selected_item_key):
 
@@ -493,6 +493,10 @@ class JenkinsHelper(App):
             self.error_log_bt.set_enabled(True)
 
     def on_error_log(self, emitter):
+        threading.Thread(target=self.do_error_log).start()
+
+    def do_error_log(self):
+        self.error_log_bt.set_enabled(False)
         log_str = ''
         for job in self.selected_jobs:
             job_info = JenkinsServer.server.get_job_info(job)
@@ -509,6 +513,7 @@ class JenkinsHelper(App):
                         print(format_log(err_msg))
                 log_str += '\n'
             self.log_label.set_text(log_str)
+        self.error_log_bt.set_enabled(True)
 
     def on_update_job(self, widget):
         self.add_params_dialog = gui.GenericDialog('Update Job', width=500)
@@ -525,6 +530,10 @@ class JenkinsHelper(App):
         self.add_params_dialog.show(self)
 
     def do_update(self, widget):
+        threading.Thread(target=self.do_update_in_thread).start()
+
+    def do_update_in_thread(self):
+        self.update_bt.set_enabled(False)
         new_branch = self.git_branch_input.get_text().strip()
         new_string_params = self.string_param_input.get_text()
         if len(new_branch) == 0 and len(new_string_params) == 0:
@@ -573,6 +582,7 @@ class JenkinsHelper(App):
                 log_str += format_log(f'Job {job} update failed! error msg: {result}')
                 print(format_log(f'Job {job} update failed! error msg: {result}'))
             self.log_label.set_text(log_str)
+        self.update_bt.set_enabled(True)
 
     def on_add_params(self, widget):
         self.add_params_dialog = gui.GenericDialog('Add params', width=500)
@@ -585,7 +595,10 @@ class JenkinsHelper(App):
         self.add_params_dialog.show(self)
 
     def do_add_params(self, widget):
+        threading.Thread(target=self.do_add_params_in_thread).start()
 
+    def do_add_params_in_thread(self):
+        self.add_params_bt.set_enabled(False)
         string_param = self.add_string_param_input.get_text()
         if len(string_param) == 0:
             self.log_label.set_text(format_log('Add params failed. string params is null'))
@@ -603,12 +616,13 @@ class JenkinsHelper(App):
             '     <parameterDefinitions> \n' \
             '         <hudson.model.StringParameterDefinition> \n' \
             '             <name>' + param_d['name'] + '</name> \n' \
-            '             <description>' + param_d['description'] + '</description> \n' \
-            '             <defaultValue>' + param_d['defaultValue'] + '</defaultValue> \n' \
-            '             <trim>false</trim>  \n' \
-            '         </hudson.model.StringParameterDefinition> \n' \
-            '     </parameterDefinitions> \n' \
-            '</hudson.model.ParametersDefinitionProperty>'
+                                                      '             <description>' + param_d[
+                'description'] + '</description> \n' \
+                                 '             <defaultValue>' + param_d['defaultValue'] + '</defaultValue> \n' \
+                                                                                           '             <trim>false</trim>  \n' \
+                                                                                           '         </hudson.model.StringParameterDefinition> \n' \
+                                                                                           '     </parameterDefinitions> \n' \
+                                                                                           '</hudson.model.ParametersDefinitionProperty>'
         string_param_dom = xml.dom.minidom.parseString(string_param_str)
         log_str = ''
         for job in self.selected_jobs:
@@ -623,11 +637,12 @@ class JenkinsHelper(App):
                 dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
                 JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
                 log_str += format_log(f'Job {job} add params successful!')
-                print(format_log(f'Job {job} add params successful!'))
+                print(format_log(f'J ob {job} add params successful!'))
             except Exception as result:
                 log_str += format_log(f'Job {job} add params failed! error msg: {result}')
                 print(format_log(f'Job {job} add params failed! error msg: {result}'))
-        self.log_label.set_text(log_str)
+            self.log_label.set_text(log_str)
+        self.add_params_bt.set_enabled(True)
 
     def on_select_all(self, widget):
         self.selected_jobs = []
@@ -641,7 +656,6 @@ class JenkinsHelper(App):
         self.selected_job_list.empty()
         self.selected_job_list.append(self.selected_jobs)
         self.rebuild = False
-        self.stop_build_bt.set_enabled(False)
         self.check_selected_job()
 
     def set_favicon(self):
