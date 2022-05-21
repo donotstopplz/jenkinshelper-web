@@ -350,7 +350,6 @@ class JenkinsHelper(App):
         except Exception as result:
             if len(str(result)) != 0:
                 self.lblsession_status.set_text('login failed!')
-                print("login failed!")
                 return
         full_name = jenkins_server.get_whoami()['fullName']
         print('Hello %s from Jenkins %s' % (full_name, jenkins_server.get_version()))
@@ -481,7 +480,6 @@ class JenkinsHelper(App):
             self.selected_job_list.append(job_str)
             self.selected_jobs.append(job_str)
         self.check_selected_job()
-        print(self.selected_jobs)
 
     def un_select_job(self, emitter, selected_item_key):
 
@@ -491,7 +489,6 @@ class JenkinsHelper(App):
             self.selected_job_list.empty()
             self.selected_job_list.append(self.selected_jobs)
         self.check_selected_job()
-        print(self.selected_jobs)
 
     def check_selected_job(self):
         if len(self.selected_jobs) == 0:
@@ -518,13 +515,11 @@ class JenkinsHelper(App):
                            job_info['lastFailedBuild']['number']
             if build_failed:
                 log_str += format_log(f'Job  [{job}] build failed!')
-                print(format_log(f'Job [{job}] build failed!'))
                 build_info = JenkinsServer.server.get_build_console_output(job, job_info['lastBuild']['number'])
                 err_msgs = build_info.splitlines(False)
                 for err_msg in err_msgs:
                     if 'error' in err_msg.lower() or 'failure' in err_msg.lower():
                         log_str += format_log(err_msg)
-                        print(format_log(err_msg))
                 log_str += '\n'
         log_str += format_log('Query error log end!\n')
         self.log_label.set_text(log_str)
@@ -558,7 +553,6 @@ class JenkinsHelper(App):
         for job in self.selected_jobs:
             try:
                 config = JenkinsServer.server.get_job_config(name=job)
-                print(config)
                 dom = xml.dom.minidom.parseString(config)
                 update = False
                 if len(new_branch) != 0:
@@ -592,10 +586,8 @@ class JenkinsHelper(App):
                     dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
                     JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
                 log_str += format_log(f'Job {job} update successful!')
-                print(format_log(f'Job {job} update successful!'))
             except Exception as result:
                 log_str += format_log(f'Job {job} update failed! error msg: {result}')
-                print(format_log(f'Job {job} update failed! error msg: {result}'))
             self.log_label.set_text(log_str)
         self.update_bt.set_enabled(True)
 
@@ -652,10 +644,8 @@ class JenkinsHelper(App):
                 dom.writexml(sys.stdin, addindent='\t', newl='\n', encoding='utf-8')
                 JenkinsServer.server.upsert_job(name=job, config_xml=xml_stdin.to_string())
                 log_str += format_log(f'Job {job} add params successful!')
-                print(format_log(f'J ob {job} add params successful!'))
             except Exception as result:
                 log_str += format_log(f'Job {job} add params failed! error msg: {result}')
-                print(format_log(f'Job {job} add params failed! error msg: {result}'))
             self.log_label.set_text(log_str)
         self.add_params_bt.set_enabled(True)
 
