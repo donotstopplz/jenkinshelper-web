@@ -254,37 +254,41 @@ class JenkinsHelper(App):
         self.main_container.append(self.head)
         # head end
 
-        # maine-center start
-        self.left_container = gui.VBox(children=[],
-                                       style={'margin': '4px 4px',
-                                              'background-color': 'lightgray'})
         # view list
         self.view_lable = gui.Label("View", style={'margin': '0px 10px'})
         self.view_list_dd = gui.DropDown(width='200px')
         self.view_list_dd.style.update({'font-size': 'large'})
         self.view_list_dd.add_class("form-control dropdown")
         self.view_list_dd.onchange.do(self.list_view_on_selected)
-        self.view_container = gui.HBox(children=[self.view_lable, self.view_list_dd],
-                                         style={'margin': '4px auto',
+        self.search_text = gui.TextInput(style={'margin': '0px 4px'})
+        self.search_text.onchange.do(self.on_search_jobs)
+        self.view_search_container = gui.HBox(children=[self.view_lable, self.view_list_dd, self.search_text],
+                                              style={'margin': '0px auto',
                                                 'background-color': 'lightgray'})
+        self.main_container.append(self.view_search_container)
+        # maine-center start
+        self.left_container = gui.VBox(children=[],
+                                       style={'margin': '4px 4px',
+                                              'background-color': 'lightgray'})
         # job list
         self.job_list = []
         self.job_list_view = gui.ListView.new_from_list(self.job_list, width=300, height=420, margin='10px')
         self.job_list_view.onselection.do(self.select_job)
         self.select_all_bt = gui.Button('Select All', width=100, height=30, margin='10px')
         self.select_all_bt.onclick.do(self.on_select_all)
-        self.left_container.append(self.view_container, 'viewList')
+        # self.left_container.append(self.view_container, 'viewList')
         self.left_container.append(self.job_list_view, 'jobList')
         self.left_container.append(self.select_all_bt, 'all')
         self.center_container.append(self.left_container)
 
-        self.selected_job_list = gui.ListView.new_from_list([], width=300, height=420, margin='10px')
+        self.selected_jobs = []
+        self.selected_job_list = gui.ListView.new_from_list(self.selected_jobs, width=300, height=420, margin='10px')
         self.selected_job_list.onselection.do(self.un_select_job)
         self.cleal_all_bt = gui.Button('Clear All', width=100, height=30, margin='10px')
         self.cleal_all_bt.onclick.do(self.on_clear_all)
         self.right_container = gui.VBox(children=[self.selected_job_list, self.cleal_all_bt],
                                         style={'margin': '4px 4px',
-                                               'margin-top': '30px',
+                                               # 'margin-top': '30px',
                                                'background-color': 'lightgray'})
         self.center_container.append(self.right_container)
 
@@ -310,11 +314,20 @@ class JenkinsHelper(App):
         self.main_container.append([self.center_container, self.log_container])
         # main end
         self.selected_view = ''
-        self.selected_jobs = []
 
         # self.on_login(emitter=None)
         return self.login_container
         # return self.main_container
+
+    def on_search_jobs(self, emitter, value):
+        search_job_list = value.split(',')
+        if len(search_job_list) == 0 or len(self.job_list) == 0:
+            return
+        self.selected_jobs = list(set(self.job_list).intersection(set(search_job_list)))
+        self.selected_job_list.empty()
+        self.selected_job_list.append(self.selected_jobs, "selectJobs")
+        self.check_selected_job()
+
 
     def get_password_value(self, emitter, value):
         self.password_value = value
@@ -497,7 +510,8 @@ class JenkinsHelper(App):
 
     def do_error_log(self):
         self.error_log_bt.set_enabled(False)
-        log_str = ''
+        log_str = format_log('Query error log start!')
+        self.log_label.set_text(log_str)
         for job in self.selected_jobs:
             job_info = JenkinsServer.server.get_job_info(job)
             build_failed = job_info['lastFailedBuild'] is not None and job_info['lastBuild']['number'] is \
@@ -512,7 +526,8 @@ class JenkinsHelper(App):
                         log_str += format_log(err_msg)
                         print(format_log(err_msg))
                 log_str += '\n'
-            self.log_label.set_text(log_str)
+        log_str += format_log('Query error log end!\n')
+        self.log_label.set_text(log_str)
         self.error_log_bt.set_enabled(True)
 
     def on_update_job(self, widget):
@@ -645,16 +660,17 @@ class JenkinsHelper(App):
         self.add_params_bt.set_enabled(True)
 
     def on_select_all(self, widget):
-        self.selected_jobs = []
-        for job_str in self.job_list:
-            self.selected_jobs.append(job_str)
-        self.selected_job_list.append(self.selected_jobs)
+        self.selected_jobs = self.job_list
+        # for job_str in self.job_list:
+        #     self.selected_jobs.append(job_str)
+        self.selected_job_list.empty()
+        self.selected_job_list.append(self.selected_jobs, "selectJobs")
         self.check_selected_job()
 
     def on_clear_all(self, widget):
         self.selected_jobs = []
         self.selected_job_list.empty()
-        self.selected_job_list.append(self.selected_jobs)
+        self.selected_job_list.append(self.selected_jobs, "selectJobs")
         self.rebuild = False
         self.check_selected_job()
 
