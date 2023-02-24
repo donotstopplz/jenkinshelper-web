@@ -1,5 +1,7 @@
 # JenkinsHelper-Web
 
+![](https://komarev.com/ghpvc/?username=itisokey-jenkinshelper-web&color=orange&style=flat&label=pv)
+
 ### Supports selecting multiple jobs to operate for Jenkins at the same time.
 * build   
   * build with params
