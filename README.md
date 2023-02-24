@@ -1,7 +1,6 @@
 # JenkinsHelper-Web
 
-### Supports selecting multiple jobs at once to operate for jenkins 
-The JenkinsHelper window is at the bottom of the ide. it support select multiple jobs to operate.
+### Supports selecting multiple jobs to operate for Jenkins at the same time.
 * build   
   * build with params
   * circular build if last build was failed 
